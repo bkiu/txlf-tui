@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: MIT
 """
 TXLF 2026 TUI — offline schedule browser for Texas Linux Fest 2026.
 

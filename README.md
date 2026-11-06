@@ -43,6 +43,10 @@ Other: `./txlf.py --clear-saved` wipes your saved list.
 - **Small-screen friendly** — degrades gracefully down to ~30×8: room names
   shorten to 3-letter codes and columns drop as width shrinks.
 
+## License
+
+MIT — see [LICENSE](LICENSE).
+
 ## Data locations
 
 | File                                      | Contents               |
