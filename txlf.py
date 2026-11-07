@@ -26,7 +26,7 @@ import sys
 import textwrap
 import urllib.request
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 SCHEDULE_URL = "https://pretalx.com/txlf2026/schedule/export/schedule.json"
@@ -151,11 +151,14 @@ def save_saved(guids):
 # ------------------------------------------------------------------- helpers
 
 def conf_tz():
-    try:
-        from zoneinfo import ZoneInfo
-        return ZoneInfo(CONF_TZ_NAME)
-    except Exception:
-        return timezone.utc
+    # legacy key first, then IANA equivalent (some tzdata builds lack US/* aliases)
+    for name in (CONF_TZ_NAME, "America/Chicago", "America/Indiana/Indianapolis"):
+        try:
+            from zoneinfo import ZoneInfo
+            return ZoneInfo(name)
+        except Exception:
+            continue
+    return timezone.utc
 
 
 def wrap(text, width):
@@ -173,13 +176,24 @@ class App:
         self.scr = stdscr
         curses.curs_set(0)
         self.scr.keypad(True)
-        curses.start_color()
-        curses.use_default_colors()
-        for i in range(1, 16):
+        self.pairs_ok = set()
+        if curses.has_colors():
             try:
-                curses.init_pair(i, i - 1, -1)
+                curses.start_color()
             except curses.error:
                 pass
+            else:
+                try:
+                    curses.use_default_colors()
+                except curses.error:
+                    pass
+                n = curses.tigetnum("colors")
+                for i in range(1, min(16, n) + 1):
+                    try:
+                        curses.init_pair(i, min(i - 1, n - 1), -1)
+                        self.pairs_ok.add(i)
+                    except curses.error:
+                        pass
         self.msg = ""
         self.help = False
         self.saved = load_saved()
@@ -194,11 +208,25 @@ class App:
 
     def refresh_data(self):
         self.conf, self.rooms, self.days, self.events = load_schedule()
-        self.day_idx = 0
+        self.day_idx = self.default_day_idx()
         self.sel = 0
         self.detail = None
         self.dlines = []
         self.my_sched = False
+
+    def default_day_idx(self):
+        """Pick the conference day matching today (conference tz), clamped to range."""
+        if not self.days:
+            return 0
+        today = self.now().astimezone(conf_tz()).date()
+        for i, d in enumerate(self.days):
+            try:
+                if date.fromisoformat(d) == today:
+                    return i
+            except ValueError:
+                continue
+        first = date.fromisoformat(self.days[0])
+        return 0 if today < first else len(self.days) - 1
 
     def now(self):
         return datetime.now(timezone.utc)
@@ -218,8 +246,9 @@ class App:
         return self.day_events(self.day_idx)
 
     def track_attr(self, ev):
-        if ev.track in TRACK_COLORS:
-            return curses.color_pair(TRACK_COLORS[ev.track]) | curses.A_BOLD
+        c = TRACK_COLORS.get(ev.track)
+        if c is not None and c in self.pairs_ok:
+            return curses.color_pair(c) | curses.A_BOLD
         return curses.A_BOLD
 
     # ---------------------------- rendering
@@ -324,7 +353,11 @@ class App:
                 continue
             ev = items[i]
             text, live = self.list_row(ev, w)
-            attr = curses.A_REVERSE if i == self.sel else 0
+            if i == self.sel:
+                text = ">" + text[1:] if text else ">"
+                attr = curses.A_REVERSE | curses.A_BOLD
+            else:
+                attr = 0
             if live:
                 attr |= curses.A_BOLD
             try:
