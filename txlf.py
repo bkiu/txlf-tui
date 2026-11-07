@@ -199,6 +199,7 @@ class App:
         self.saved = load_saved()
         self.refresh_data()
         self.sel = 0
+        self.list_off = 0         # first visible entry (sticky, scrolloff=5)
         self.detail = None          # Event or None
         self.dlines = []            # prebuilt detail lines
         self.detail_off = 0
@@ -210,6 +211,7 @@ class App:
         self.conf, self.rooms, self.days, self.events = load_schedule()
         self.day_idx = self.default_day_idx()
         self.sel = 0
+        self.list_off = 0
         self.detail = None
         self.dlines = []
         self.my_sched = False
@@ -338,9 +340,18 @@ class App:
             entries = [("ev", i) for i in range(len(items))]
             pos = self.sel
 
-        off = 0
-        if pos >= vis:
-            off = pos - vis + 1
+        # sticky viewport with scrolloff (vim-like): only scroll when the
+        # highlighted row is within SCROLLOFF rows of the top or bottom
+        soff = 5
+        if soff * 2 + 1 >= vis:
+            soff = (vis - 1) // 2
+        row = pos - self.list_off
+        if row > vis - 1 - soff:
+            self.list_off = pos - (vis - 1 - soff)
+        elif row < soff:
+            self.list_off = pos - soff
+        off = min(max(0, self.list_off), max(0, len(entries) - vis))
+        self.list_off = off
         for k in range(off, min(len(entries), off + vis)):
             kind, i = entries[k]
             row = top + (k - off)
@@ -543,6 +554,7 @@ class App:
                     self.my_sched = False
                     self.day_idx = d
                     self.sel = 0
+                    self.list_off = 0
                     if old:
                         for i, ev in enumerate(self.current_list()):
                             if ev.date == old.date and ev.start >= old.start:
@@ -552,6 +564,7 @@ class App:
             elif ch == ord("m"):
                 self.my_sched = not self.my_sched
                 self.sel = 0
+                self.list_off = 0
                 self.msg = ""
             elif ch == ord("n"):
                 self.jump_now()
