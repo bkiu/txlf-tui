@@ -4,7 +4,7 @@ Offline TUI for the **Texas Linux Fest 2026** schedule, built with Python's
 standard library only (curses). No dependencies, no network required at run
 time — the full schedule is cached locally.
 
-This was written for the (term/deck)[https://github.com/bkiu/termdeck], my Raspberry Pi 3A+ powered cyberdeck.
+This was written for the [term/deck](https://github.com/bkiu/termdeck), my Raspberry Pi 3A+ powered cyberdeck.
 
 ## Quick start
 
